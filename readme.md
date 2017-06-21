@@ -1,4 +1,4 @@
-# Vive Stereo Rendering Prototypes
+# Vive Stereo Rendering Toolkit
 Copyright (c) 2016-2017 HTC Corporation. All Rights Reserved.
 
 ## Introduction
