@@ -1,8 +1,9 @@
-﻿using System;
+﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
 using UnityEngine;
 
 namespace HTC.UnityPlugin.StereoRendering
 {
+#if (VIVE_STEREO_STEAMVR)
     public class SteamVRParamFactory : IDeviceParamFactory
     {
         public int GetRenderWidth()
@@ -15,9 +16,11 @@ namespace HTC.UnityPlugin.StereoRendering
             return (int)SteamVR.instance.sceneHeight;
         }
 
-        public Vector3 GetEyeLocalPosition(int eye)
+        public Vector3 GetEyeSeperation(int eye)
         {
-            return SteamVR.instance.eyes[eye].pos;
+            var eyePos = SteamVR.instance.eyes[eye].pos;
+            eyePos.z = 0.0f;
+            return eyePos;
         }
 
         public Quaternion GetEyeLocalRotation(int eye)
@@ -58,4 +61,5 @@ namespace HTC.UnityPlugin.StereoRendering
             return m;
         }
     }
+#endif
 }

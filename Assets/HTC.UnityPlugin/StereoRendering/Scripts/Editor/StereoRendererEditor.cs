@@ -1,4 +1,4 @@
-﻿//========= Copyright 2016, HTC Corporation. All rights reserved. ===========
+﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
 
 using UnityEditor;
 using UnityEngine;
@@ -125,7 +125,7 @@ namespace HTC.UnityPlugin.StereoRendering
                 var anchorRotChanged = EditorGUI.EndChangeCheck();
 
                 Handles.color = anchorColor;
-                Handles.CubeCap(0, newAnchorPos, newAnchorRot, cubeSize);
+                Handles.CubeHandleCap(0, newAnchorPos, newAnchorRot, cubeSize, EventType.Repaint);
 
                 if (anchorPosChanged || anchorRotChanged)
                 {
@@ -140,11 +140,11 @@ namespace HTC.UnityPlugin.StereoRendering
             else
             {
                 Handles.color = anchorColor;
-                Handles.CubeCap(0, script.anchorTransform.transform.position, script.anchorTransform.transform.rotation, cubeSize);
+                Handles.CubeHandleCap(0, script.anchorTransform.transform.position, script.anchorTransform.transform.rotation, cubeSize, EventType.Repaint);
             }
 
             // draw handle for canvas origin object
-            if(script.canvasOrigin == null)
+            if (script.canvasOrigin == null)
             {
                 var canvasOriginPos = script.canvasOriginPos;
                 var canvasOriginRot = script.canvasOriginRot;
@@ -158,7 +158,7 @@ namespace HTC.UnityPlugin.StereoRendering
                 var originRotChanged = EditorGUI.EndChangeCheck();
 
                 Handles.color = originColor;
-                Handles.CubeCap(0, newOriginPos, newOriginRot, cubeSize);
+                Handles.CubeHandleCap(0, newOriginPos, newOriginRot, cubeSize, EventType.Repaint);
 
                 if (originPosChanged || originRotChanged)
                 {
@@ -173,7 +173,7 @@ namespace HTC.UnityPlugin.StereoRendering
             else
             {
                 Handles.color = originColor;
-                Handles.CubeCap(0, script.canvasOrigin.transform.position, script.canvasOrigin.transform.rotation, cubeSize);
+                Handles.CubeHandleCap(0, script.canvasOrigin.transform.position, script.canvasOrigin.transform.rotation, cubeSize, EventType.Repaint);
             }
         }
     }

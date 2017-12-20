@@ -1,5 +1,4 @@
-﻿//========= Copyright 2016, HTC Corporation. All rights reserved. ===========
-
+﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
 using UnityEngine;
 using HTC.UnityPlugin.StereoRendering;
 
@@ -28,6 +27,7 @@ public class PortalEntry : MonoBehaviour
             Vector3 posDiff = new Vector3(stereoRenderer.stereoCameraHead.transform.position.x - hmdEye.transform.position.x,
                                           stereoRenderer.stereoCameraHead.transform.position.y - hmdEye.transform.position.y,
                                           stereoRenderer.stereoCameraHead.transform.position.z - hmdEye.transform.position.z);
+
             Vector3 camRigTargetPos = hmdRig.transform.position + posDiff;
 
             // assign the target position to camera rig

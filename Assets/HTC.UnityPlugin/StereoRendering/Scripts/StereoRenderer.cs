@@ -3,10 +3,7 @@
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
-
 using UnityEngine;
-using UnityEngine.Rendering;
-
 using System;
 using System.Collections.Generic;
 
@@ -135,15 +132,17 @@ namespace HTC.UnityPlugin.StereoRendering
         }
 
         //--------------------------------------------------------------------------------
+        // stereo matrices
+
+        private Matrix4x4 leftProjMatrix;
+        private Matrix4x4 rightProjMatrix;
+
+        //--------------------------------------------------------------------------------
         // other variables
 
         // flags
         private bool canvasVisible = false;
         public bool shouldRender = true;
-
-        // the camera rig that represents HMD
-        private GameObject mainCameraParent;
-        private Camera mainCameraEye;
 
         // camera rig for stereo rendering, which is on the object this component attached to
         public GameObject stereoCameraHead = null;
@@ -192,17 +191,20 @@ namespace HTC.UnityPlugin.StereoRendering
             if (stereoCameraHead == null)
                 CreateStereoCameraRig();
 
-            // FIX Unity 5.4 shadow bug (issue trakcer ID 686520) ++
-            #if UNITY_5_4
-                GraphicsSettings.SetCustomShader(BuiltinShaderType.ScreenSpaceShadows, Shader.Find("ScreenSpaceShadows-ForCustomPerspectiveMat"));
-            #endif
-            // FIX Unity 5.4 shadow bug (issue trakcer ID 686520) --
+            // get and store projection matrices
+            leftProjMatrix = StereoRenderManager.Instance.paramFactory.GetProjectionMatrix(
+                0, stereoCameraEye.nearClipPlane, stereoCameraEye.farClipPlane);
+            rightProjMatrix = StereoRenderManager.Instance.paramFactory.GetProjectionMatrix(
+                1, stereoCameraEye.nearClipPlane, stereoCameraEye.farClipPlane);
 
-            // swap correct stereo shader for different unity versions; also create stereo material if nothing is there
+            // swap correct stereo shader for different unity versions; 
+            // also create stereo material if nothing is there
             SwapStereoShader();
 
             // create render textures as target of stereo rendering
-            CreateRenderTextures(StereoRenderManager.Instance.paramFactory.GetRenderWidth(), StereoRenderManager.Instance.paramFactory.GetRenderHeight());
+            CreateRenderTextures(
+                StereoRenderManager.Instance.paramFactory.GetRenderWidth(), 
+                StereoRenderManager.Instance.paramFactory.GetRenderHeight());
 
             // get main camera and registor to StereoRenderManager
             StereoRenderManager.Instance.AddToManager(this);
@@ -268,7 +270,7 @@ namespace HTC.UnityPlugin.StereoRendering
 
         private void SwapStereoShader()
         {
-            // swap correct shader for different unity versions
+            // check if stereo material is set
             Renderer renderer = GetComponent<Renderer>();
             Material[] materialList = renderer.materials;
 
@@ -276,15 +278,14 @@ namespace HTC.UnityPlugin.StereoRendering
             for (i = 0; i < materialList.Length; i++)
             {
                 Material mt = materialList[i];
-                if (mt.shader.name == "Custom/StereoRenderShader" || mt.shader.name == "Custom/StereoRenderShader_5_3")
+                if (mt.shader.name == "Custom/StereoRenderShader")
                 {
                     stereoMaterial = mt;
 
-                    #if UNITY_5_4_OR_NEWER
-                        renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader");
-                    #else
-                        renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader_5_3");
-                    #endif
+                    if (StereoRenderDevice.IsNotUnityNativeSupport(StereoRenderManager.Instance.hmdType))
+                    {
+                        renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture");
+                    }
 
                     break;
                 }
@@ -295,11 +296,14 @@ namespace HTC.UnityPlugin.StereoRendering
             {
                 renderer.sharedMaterial = (Material)Resources.Load("StereoRenderMaterial", typeof(Material));
 
-                #if UNITY_5_4_OR_NEWER
+                if (StereoRenderDevice.IsNotUnityNativeSupport(StereoRenderManager.Instance.hmdType))
+                {
+                    renderer.materials[0].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture");
+                }
+                else
+                {
                     renderer.materials[0].shader = Shader.Find("Custom/StereoRenderShader");
-                #else
-                    renderer.materials[0].shader = Shader.Find("Custom/StereoRenderShader_5_3");
-                #endif
+                }
 
                 stereoMaterial = renderer.materials[0];
             }
@@ -314,16 +318,8 @@ namespace HTC.UnityPlugin.StereoRendering
             leftEyeTexture = new RenderTexture(w, h, depth);
             leftEyeTexture.antiAliasing = aaLevel;
 
-            #if UNITY_5_4_OR_NEWER
-                rightEyeTexture = new RenderTexture(w, h, depth);
-                rightEyeTexture.antiAliasing = aaLevel;
-            #endif
-        }
-
-        public void InitMainCamera(GameObject parent, Camera cam)
-        {
-            mainCameraParent = parent;
-            mainCameraEye = cam;
+            rightEyeTexture = new RenderTexture(w, h, depth);
+            rightEyeTexture.antiAliasing = aaLevel;
         }
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -350,16 +346,16 @@ namespace HTC.UnityPlugin.StereoRendering
 
         private void OnWillRenderObject()
         {
-            if (Camera.current == mainCameraEye)
+            if (Camera.current.GetComponent<VRRenderEventDetector>() != null)
             {
                 canvasVisible = true;
             }
         }
 
-        public void Render()
+        public void Render(VRRenderEventDetector detector)
         {
             // move stereo camera around based on HMD pose
-            MoveStereoCameraBasedOnHmdPose();
+            MoveStereoCameraBasedOnHmdPose(detector);
 
             // invoke pre-render events
             if (preRenderListeners != null)
@@ -374,7 +370,7 @@ namespace HTC.UnityPlugin.StereoRendering
                 {
                     ignoreObjOriginalLayer.Add(ignoreWhenRender[i].layer);
 
-                    if(ignoreLayerNumber > 0)
+                    if (ignoreLayerNumber > 0)
                         ignoreWhenRender[i].layer = ignoreLayerNumber;
                 }
 
@@ -383,12 +379,15 @@ namespace HTC.UnityPlugin.StereoRendering
                     GL.invertCulling = true;
 
                 // render the canvas
-                #if UNITY_5_4_OR_NEWER
-                    RenderWithTwoTextures();
-                #else
-                    RenderWithOneTexture();
-                #endif
-
+                if (StereoRenderDevice.IsNotUnityNativeSupport(StereoRenderManager.Instance.hmdType))
+                {
+                    RenderToOneStereoTexture(detector);
+                }
+                else
+                {
+                    RenderToTwoStereoTextures(detector);
+                }
+                
                 // reset backface culling
                 if (isMirror)
                     GL.invertCulling = false;
@@ -406,15 +405,10 @@ namespace HTC.UnityPlugin.StereoRendering
                 postRenderListeners.Invoke();
         }
 
-        public void MoveStereoCameraBasedOnHmdPose()
+        public void MoveStereoCameraBasedOnHmdPose(VRRenderEventDetector detector)
         {
-            #if UNITY_5_4_OR_NEWER
-                Vector3 mainCamPos = mainCameraEye.transform.position;
-                Quaternion mainCamRot = mainCameraEye.transform.rotation;
-            #else
-                Vector3 mainCamPos = mainCameraParent.transform.position;
-                Quaternion mainCamRot = mainCameraParent.transform.rotation;
-            #endif
+            Vector3 mainCamPos = detector.transform.position;
+            Quaternion mainCamRot = detector.transform.rotation;
 
             if (isMirror)
             {
@@ -450,75 +444,86 @@ namespace HTC.UnityPlugin.StereoRendering
             }
         }
 
-        private void RenderWithTwoTextures()
+        private void RenderToTwoStereoTextures(VRRenderEventDetector detector)
         {
-            float stereoSeparation = 2.0f * Mathf.Abs(StereoRenderManager.Instance.paramFactory.GetEyeLocalPosition(0).x);
+            // get eye poses
+            Vector3 leftEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(0);
+            Quaternion leftEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(0);
 
-            // left eye rendering -------------------------------------------------------------------
-            int curEye = 0;
+            Vector3 rightEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(1);
+            Quaternion rightEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(1);
 
-            // set eye pose
-            stereoCameraEye.transform.localPosition = StereoRenderManager.Instance.paramFactory.GetEyeLocalPosition(curEye);
-            stereoCameraEye.transform.localRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(curEye);
+            // render stereo textures
+            RenderEye(
+                leftEyeOffset, leftEyeRotation, 
+                leftProjMatrix, detector.unityCamera.worldToCameraMatrix, 
+                leftEyeTexture, "_LeftEyeTexture");
 
-            // set view matrix for mirrors
-            if (isMirror)
-            {
-                Matrix4x4 worldToCamera = mainCameraEye.worldToCameraMatrix;
-                stereoCameraEye.worldToCameraMatrix = worldToCamera * reflectionMat;
-            }
+            var rightEyeWorldToCameraMatrix = detector.unityCamera.worldToCameraMatrix;
+            rightEyeWorldToCameraMatrix.m03 -= 2.0f * Mathf.Abs(leftEyeOffset.x);
 
-            // set projection matrix
-            stereoCameraEye.projectionMatrix = StereoRenderManager.Instance.paramFactory.GetProjectionMatrix(curEye, stereoCameraEye.nearClipPlane, stereoCameraEye.farClipPlane);
-
-            // render
-            stereoCameraEye.targetTexture = leftEyeTexture;
-            stereoCameraEye.Render();
-            stereoMaterial.SetTexture("_LeftEyeTexture", leftEyeTexture);
-
-            // right eye rendering -------------------------------------------------------------------
-            curEye = 1;
-
-            // set eye pose
-            stereoCameraEye.transform.localPosition = StereoRenderManager.Instance.paramFactory.GetEyeLocalPosition(curEye);
-            stereoCameraEye.transform.localRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(curEye);
-
-            // set view matrix for mirrors
-            if (isMirror)
-            {
-                Matrix4x4 worldToCamera = mainCameraEye.worldToCameraMatrix;
-                worldToCamera.m03 -= stereoSeparation;
-                stereoCameraEye.worldToCameraMatrix = worldToCamera * reflectionMat;
-            }
-
-            // set projection matrix
-            stereoCameraEye.projectionMatrix = StereoRenderManager.Instance.paramFactory.GetProjectionMatrix(curEye, stereoCameraEye.nearClipPlane, stereoCameraEye.farClipPlane);
-
-            // render
-            stereoCameraEye.targetTexture = rightEyeTexture;
-            stereoCameraEye.Render();
-            stereoMaterial.SetTexture("_RightEyeTexture", rightEyeTexture);
+            RenderEye(
+                rightEyeOffset, rightEyeRotation,
+                rightProjMatrix, rightEyeWorldToCameraMatrix,
+                rightEyeTexture, "_RightEyeTexture");
         }
 
-        private void RenderWithOneTexture()
+        private void RenderToOneStereoTexture(VRRenderEventDetector detector)
         {
-            // move remote camera eye to the corresponding position of the main camera eye
-            // note that the main camera head pose has been syncronized with remote camera head
-            Vector3 vectorHeadToEye = mainCameraEye.transform.position - mainCameraParent.transform.position;
-            Quaternion rotCanvasToAnchor = anchorRot * Quaternion.Inverse(canvasOriginRot);
+            // get eye poses
+            if (detector.eye == 0)
+            {
+                Vector3 leftEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(0);
+                Quaternion leftEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(0);
 
-            // sync projection matrix from main camera
-            stereoCameraEye.transform.position = stereoCameraHead.transform.position + rotCanvasToAnchor * vectorHeadToEye;
-            stereoCameraEye.projectionMatrix = mainCameraEye.projectionMatrix;
+                RenderEye(
+                    leftEyeOffset, leftEyeRotation,
+                    leftProjMatrix, detector.unityCamera.worldToCameraMatrix,
+                    leftEyeTexture, "_MainTexture");
+            }
+            else
+            {
+                Vector3 rightEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(1);
+                Quaternion rightEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(1);
 
-            // render current eye
-            stereoCameraEye.targetTexture = leftEyeTexture;
-            stereoMaterial.SetTexture("_MainTexture", leftEyeTexture);
+                RenderEye(
+                   rightEyeOffset, rightEyeRotation,
+                   rightProjMatrix, detector.unityCamera.worldToCameraMatrix,
+                   rightEyeTexture, "_MainTexture");
+            }
+        }
+
+        private void RenderEye(
+            Vector3 eyeOffset, Quaternion eyeRotation, 
+            Matrix4x4 projMat, Matrix4x4 worldToCameraMat,
+            RenderTexture targetTexture, string textureName)
+        {
+            stereoCameraEye.transform.localPosition = eyeOffset;
+            stereoCameraEye.transform.localRotation = eyeRotation;
+
+            // set view matrix for mirrors
+            if (isMirror)
+            {
+                stereoCameraEye.worldToCameraMatrix = worldToCameraMat * reflectionMat;
+            }
+
+            // set projection matrix
+            stereoCameraEye.projectionMatrix = projMat;
+
+            // render
+            stereoCameraEye.targetTexture = targetTexture;
             stereoCameraEye.Render();
+            stereoMaterial.SetTexture(textureName, targetTexture);
         }
 
         /////////////////////////////////////////////////////////////////////////////////
         // callbacks and utilities
+
+        public void SetProjetionMatrices(Matrix4x4 leftMat, Matrix4x4 rightMat)
+        {
+            leftProjMatrix = leftMat;
+            rightProjMatrix = rightMat;
+        }
 
         public void AddPreRenderListener(Action listener)
         {
@@ -573,7 +578,7 @@ namespace HTC.UnityPlugin.StereoRendering
         }
 
 #if UNITY_EDITOR
-        bool LayerInjection(string layerName)
+        private bool LayerInjection(string layerName)
         {
             SerializedObject tagManager = 
                 new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);

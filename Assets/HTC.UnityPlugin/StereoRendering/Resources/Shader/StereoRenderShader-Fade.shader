@@ -1,36 +1,38 @@
-﻿//========= Copyright 2016, HTC Corporation. All rights reserved. ===========
+﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
 
-Shader "Custom/StereoRenderShader"
+Shader "Custom/StereoRenderShader-Fade"
 {
 	Properties
 	{
 		_LeftEyeTexture("Left Eye Texture", 2D) = "white" {}
 		_RightEyeTexture("Right Eye Texture", 2D) = "white" {}
+		_FadeTexture("Fade Texture", 2D) = "white" {}
 	}
-	
+
 	CGINCLUDE
 	#include "UnityCG.cginc"
 	#include "UnityInstancing.cginc"
 	ENDCG
-		
+
 	SubShader
 	{
-		Tags{ "RenderType" = "Opaque" }
-	
-		//Cull OFF
+		Tags{"Queue" = "Transparent" "RenderType" = "Transparent"}
+
+		ZWrite Off
 
 		CGPROGRAM
-		#pragma surface surf Standard 
+		#pragma surface surf Standard fullforwardshadows alpha:fade
 
 		#pragma multi_compile __ STEREO_RENDER
 		#pragma target 3.0
 
 		sampler2D _LeftEyeTexture;
 		sampler2D _RightEyeTexture;
+		sampler2D _FadeTexture;
 
 		struct Input
 		{
-			float2 uv_MainTex;
+			float2 uv_FadeTexture;
 			float4 screenPos;
 		};
 
@@ -42,24 +44,25 @@ Shader "Custom/StereoRenderShader"
 			float4 scaleOffset = unity_StereoScaleOffset[unity_StereoEyeIndex];
 			screenUV = (screenUV - scaleOffset.zw) / scaleOffset.xy;
 #endif
+
 			if (unity_StereoEyeIndex == 0)
 			{
 				fixed4 color = tex2D(_LeftEyeTexture, screenUV);
 
 				o.Albedo = color.xyz;
-				//o.Alpha = color.w;
+				o.Alpha = tex2D(_FadeTexture, IN.uv_FadeTexture).a;
 			}
 			else
 			{
 				fixed4 color = tex2D(_RightEyeTexture, screenUV);
 
 				o.Albedo = color.xyz;
-				//o.Alpha = color.w;
+				o.Alpha = tex2D(_FadeTexture, IN.uv_FadeTexture).a;
 			}
 		}
 
 		ENDCG
 	}
 
-	Fallback "Diffuse"
+	Fallback "Standard"
 }

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
+using UnityEngine;
 
 namespace HTC.UnityPlugin.StereoRendering
 {
@@ -19,7 +20,7 @@ namespace HTC.UnityPlugin.StereoRendering
         /// Get eye position relative to head coordinates.
         /// </summary>
         /// <param name="eye">Current rendering eye, 0 = left, 1 = right.</param>
-        Vector3 GetEyeLocalPosition(int eye);
+        Vector3 GetEyeSeperation(int eye);
 
         /// <summary>
         /// Get eye rotation relative to head coordinates.

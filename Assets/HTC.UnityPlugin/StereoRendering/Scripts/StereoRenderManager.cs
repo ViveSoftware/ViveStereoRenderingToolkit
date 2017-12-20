@@ -1,13 +1,11 @@
-﻿//========= Copyright 2016, HTC Corporation. All rights reserved. ===========
+﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
 
-using UnityEngine;
-using UnityEngine.VR;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace HTC.UnityPlugin.StereoRendering
 {
-    [RequireComponent(typeof(Camera))]
     [DisallowMultipleComponent]
     public class StereoRenderManager : MonoBehaviour
     {
@@ -29,10 +27,6 @@ namespace HTC.UnityPlugin.StereoRendering
 
         // all current stereo renderers
         public List<StereoRenderer> stereoRendererList = new List<StereoRenderer>();
-
-        // for callbacks
-        private Action preRenderListeners;
-        private Action postRenderListeners;
 
         /////////////////////////////////////////////////////////////////////////////////
         // initialization
@@ -63,69 +57,69 @@ namespace HTC.UnityPlugin.StereoRendering
             }
 
             // pop warning if no VR device detected
-            #if UNITY_5_4_OR_NEWER
-                if (!VRSettings.enabled) { Debug.LogError("VR is not enabled for this application."); }
-            #endif
+#if (!(UNITY_ANDROID && VIVE_STEREO_WAVEVR))
+    #if UNITY_2017_2_OR_NEWER
+            if (!UnityEngine.XR.XRSettings.enabled) { Debug.LogError("VR is not enabled for this application."); }
+    #else
+            if (!UnityEngine.VR.VRSettings.enabled) { Debug.LogError("VR is not enabled for this application."); }
+    #endif
+#endif
 
-            // try to get HMD camera
-            Camera mainCam = GetHmdCamera();
-            if (mainCam == null) { return; }
-            if (mainCam.transform.parent == null)
+            // get HMD head
+            Camera head = GetHmdRig();
+            if (head == null) { return; }
+            if (head.transform.parent == null)
             {
-                Debug.LogError("HMD Camera is not in proper hierarchy. You need a \"rig\" object as its parent.");
+                Debug.LogError("HMD rig is not of proper hierarchy. You need a \"rig\" object as its root.");
                 return;
             }
 
             // if no exsiting instance, attach a new one to HMD camera
             if (!Active)
             {
-                instance = mainCam.gameObject.AddComponent<StereoRenderManager>();
+                instance = head.gameObject.AddComponent<StereoRenderManager>();
             }
 
             // record camera components
             if (Active)
             {
-                mainCamera = mainCam;
-                mainCameraParent = mainCam.transform.parent.gameObject;
+                mainCamera = head;
+                mainCameraParent = head.transform.parent.gameObject;
             }
         }
 
-        private static Camera GetHmdCamera()
+        private static Camera GetHmdRig()
         {
             Camera target = null;
 
-            // if user has attached the script to an gameobject, try to get camera component attached to it
-            if (Active)
+#if (UNITY_ANDROID && VIVE_STEREO_WAVEVR)
+            if (WaveVR_Render.Instance != null)
             {
-                target = instance.gameObject.GetComponent<Camera>();
-                if (target == null) { Debug.LogError("You attached StereoRenderManager to an object without camera component!"); }
+                var left = WaveVR_Render.Instance.lefteye.gameObject.AddComponent<VRRenderEventDetector>();
+                left.Initialize(0);
+
+                var right = WaveVR_Render.Instance.righteye.gameObject.AddComponent<VRRenderEventDetector>();
+                right.Initialize(1);
+
+                target = WaveVR_Render.Instance.GetComponent<Camera>();
             }
-            // otherwise try to get main camera
             else
             {
-                var steamCam = FindObjectOfType<SteamVR_Camera>();
-
-                // if SteamVR Unity plugin is used, attach manager to its camera
-                if (steamCam != null)
-                {
-                    target = steamCam.gameObject.GetComponent<Camera>();
-                }
-#if UNITY_5_3
-                else
-                {
-                    Debug.LogError("Need SteamVR_Camera for Unity 5.3.");
-                    return null;
-                }
-#else
-                // otherwise attch manager to main camera which is controlled by unity to present to HMD
-                else
-                {
-                    target = Camera.main;
-                    if (target == null) { Debug.LogError("No Camera tagged as \"MainCamera\" found."); }
-                }
-#endif
+                Debug.LogError("No WaveVR_Render found.");
             }
+#else
+            if (Camera.main != null)
+            {
+                var head = Camera.main.gameObject.AddComponent<VRRenderEventDetector>();
+                head.Initialize(0);
 
+                target = Camera.main;
+            }
+            else
+            {
+                Debug.LogError("No Camera tagged as \"MainCamera\" found.");
+            }
+#endif
             return target;
         }
 
@@ -154,12 +148,8 @@ namespace HTC.UnityPlugin.StereoRendering
         /////////////////////////////////////////////////////////////////////////////////
         // render related
 
-        void OnPreRender()
+        public void InvokeStereoRenderers(VRRenderEventDetector detector)
         {
-            // invoke global pre-StereoRender events
-            if (preRenderListeners != null)
-                preRenderListeners.Invoke();
-
             // render registored stereo cameras
             for (int renderIter = 0; renderIter < stereoRendererList.Count; renderIter++)
             {
@@ -167,13 +157,9 @@ namespace HTC.UnityPlugin.StereoRendering
 
                 if (stereoRenderer.shouldRender)
                 {
-                    stereoRenderer.Render();
+                    stereoRenderer.Render(detector);
                 }
             }
-
-            // invoke global post-StereoRender events
-            if (postRenderListeners != null)
-                postRenderListeners.Invoke();
         }
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -181,37 +167,12 @@ namespace HTC.UnityPlugin.StereoRendering
 
         public void AddToManager(StereoRenderer stereoRenderer)
         {
-            stereoRenderer.InitMainCamera(mainCameraParent, mainCamera);
             stereoRendererList.Add(stereoRenderer);
         }
 
         public void RemoveFromManager(StereoRenderer stereoRenderer)
         {
             stereoRendererList.Remove(stereoRenderer);
-        }
-
-        public void AddPreRenderListener(Action listener)
-        {
-            if (listener == null) { return; }
-            preRenderListeners += listener;
-        }
-
-        public void AddPostRenderListener(Action listener)
-        {
-            if (listener == null) { return; }
-            postRenderListeners += listener;
-        }
-
-        public void RemovePreRenderListener(Action listener)
-        {
-            if (listener == null) { return; }
-            preRenderListeners -= listener;
-        }
-
-        public void RemovePostRenderListener(Action listener)
-        {
-            if (listener == null) { return; }
-            postRenderListeners -= listener;
         }
     }
 }

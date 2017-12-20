@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
+
+using UnityEngine;
 using HTC.UnityPlugin.StereoRendering;
 
 public class CreateStereoRenderer : MonoBehaviour
