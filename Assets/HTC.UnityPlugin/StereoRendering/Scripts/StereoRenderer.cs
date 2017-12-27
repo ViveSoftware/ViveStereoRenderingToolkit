@@ -131,6 +131,16 @@ namespace HTC.UnityPlugin.StereoRendering
             set { anchorEuler = value.eulerAngles; }
         }
 
+        public Vector3 anchorForward
+        {
+            get { return anchorRot * Vector3.forward; }
+        }
+
+        public Vector3 anchorUp
+        {
+            get { return anchorRot * Vector3.up; }
+        }
+
         //--------------------------------------------------------------------------------
         // stereo matrices
 
@@ -164,6 +174,12 @@ namespace HTC.UnityPlugin.StereoRendering
 
         public string ignoreLayerName = "StereoRender_Ignore";
         private int ignoreLayerNumber = -1;
+
+        // optimization flags
+        public bool useObliqueClip = true;
+
+        // other params
+        public float reflectionOffset = 0.05f;
 
         // for mirror rendering
         public bool isMirror = false;
@@ -447,11 +463,11 @@ namespace HTC.UnityPlugin.StereoRendering
         private void RenderToTwoStereoTextures(VRRenderEventDetector detector)
         {
             // get eye poses
-            Vector3 leftEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(0);
-            Quaternion leftEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(0);
+            var leftEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(0);
+            var leftEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(0);
 
-            Vector3 rightEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(1);
-            Quaternion rightEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(1);
+            var rightEyeOffset = StereoRenderManager.Instance.paramFactory.GetEyeSeperation(1);
+            var rightEyeRotation = StereoRenderManager.Instance.paramFactory.GetEyeLocalRotation(1);
 
             // render stereo textures
             RenderEye(
@@ -510,10 +526,71 @@ namespace HTC.UnityPlugin.StereoRendering
             // set projection matrix
             stereoCameraEye.projectionMatrix = projMat;
 
+            // set oblique near clip plane if flag is set
+            if (useObliqueClip)
+            {
+                var clipPlane = GetObliqueNearClipPlane();
+                stereoCameraEye.projectionMatrix = stereoCameraEye.CalculateObliqueMatrix(clipPlane);
+            }
+
             // render
             stereoCameraEye.targetTexture = targetTexture;
             stereoCameraEye.Render();
             stereoMaterial.SetTexture(textureName, targetTexture);
+        }
+
+        public void CalculateReflectionMatrix(ref Matrix4x4 reflectionMat, Vector4 normal)
+        {
+            reflectionMat.m00 = (1.0f - 2.0f * normal[0] * normal[0]);
+            reflectionMat.m01 = (-2.0f * normal[0] * normal[1]);
+            reflectionMat.m02 = (-2.0f * normal[0] * normal[2]);
+            reflectionMat.m03 = (-2.0f * normal[3] * normal[0]);
+
+            reflectionMat.m10 = (-2.0f * normal[1] * normal[0]);
+            reflectionMat.m11 = (1.0f - 2.0f * normal[1] * normal[1]);
+            reflectionMat.m12 = (-2.0f * normal[1] * normal[2]);
+            reflectionMat.m13 = (-2.0f * normal[3] * normal[1]);
+
+            reflectionMat.m20 = (-2.0f * normal[2] * normal[0]);
+            reflectionMat.m21 = (-2.0f * normal[2] * normal[1]);
+            reflectionMat.m22 = (1.0f - 2.0f * normal[2] * normal[2]);
+            reflectionMat.m23 = (-2.0f * normal[3] * normal[2]);
+
+            reflectionMat.m30 = 0.0f;
+            reflectionMat.m31 = 0.0f;
+            reflectionMat.m32 = 0.0f;
+            reflectionMat.m33 = 1.0f;
+        }
+
+        private Vector4 GetCameraSpacePlane(Camera cam, Vector3 pt, Vector3 normal)
+        {
+            Matrix4x4 m = cam.worldToCameraMatrix;
+            Vector3 camSpacePt = m.MultiplyPoint(pt);
+            Vector3 camSpaceNormal = m.MultiplyVector(normal).normalized;
+            return new Vector4(
+                camSpaceNormal.x,
+                camSpaceNormal.y,
+                camSpaceNormal.z,
+                -Vector3.Dot(camSpacePt, camSpaceNormal));
+        }
+
+        private Vector4 GetObliqueNearClipPlane()
+        {
+            var clipPlaneCameraSpace = Vector4.zero;
+            if (!isMirror)
+            {
+                clipPlaneCameraSpace = GetCameraSpacePlane(stereoCameraEye, anchorPos, anchorForward);
+            }
+            else
+            {
+                // get reflection plane -- assume +y as normal
+                float d = -Vector3.Dot(canvasOriginUp, canvasOriginPos) - reflectionOffset;
+                Vector4 reflectionPlane = new Vector4(canvasOriginUp.x, canvasOriginUp.y, canvasOriginUp.z, d);
+
+                clipPlaneCameraSpace = GetCameraSpacePlane(stereoCameraEye, canvasOriginPos, reflectionPlane);
+            }
+
+            return clipPlaneCameraSpace;
         }
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -552,29 +629,6 @@ namespace HTC.UnityPlugin.StereoRendering
         public bool IsEditing()
         {
             return Application.isEditor && !Application.isPlaying;
-        }
-
-        public void CalculateReflectionMatrix(ref Matrix4x4 reflectionMat, Vector4 normal)
-        {
-            reflectionMat.m00 = (1.0f - 2.0f * normal[0] * normal[0]);
-            reflectionMat.m01 = (-2.0f * normal[0] * normal[1]);
-            reflectionMat.m02 = (-2.0f * normal[0] * normal[2]);
-            reflectionMat.m03 = (-2.0f * normal[3] * normal[0]);
-
-            reflectionMat.m10 = (-2.0f * normal[1] * normal[0]);
-            reflectionMat.m11 = (1.0f - 2.0f * normal[1] * normal[1]);
-            reflectionMat.m12 = (-2.0f * normal[1] * normal[2]);
-            reflectionMat.m13 = (-2.0f * normal[3] * normal[1]);
-
-            reflectionMat.m20 = (-2.0f * normal[2] * normal[0]);
-            reflectionMat.m21 = (-2.0f * normal[2] * normal[1]);
-            reflectionMat.m22 = (1.0f - 2.0f * normal[2] * normal[2]);
-            reflectionMat.m23 = (-2.0f * normal[3] * normal[2]);
-
-            reflectionMat.m30 = 0.0f;
-            reflectionMat.m31 = 0.0f;
-            reflectionMat.m32 = 0.0f;
-            reflectionMat.m33 = 1.0f;
         }
 
 #if UNITY_EDITOR

@@ -14,6 +14,7 @@ namespace HTC.UnityPlugin.StereoRendering
         private SerializedProperty canvasOriginProp;
         private SerializedProperty shouldRenderProp;
         private SerializedProperty textureResProp;
+        private SerializedProperty useObliqueClipProp;
         private SerializedProperty ignoreWhenRenderProp;
         private SerializedProperty isMirrorProp;
 
@@ -33,6 +34,7 @@ namespace HTC.UnityPlugin.StereoRendering
             canvasOriginProp = serializedObject.FindProperty("canvasOrigin");
             shouldRenderProp = serializedObject.FindProperty("shouldRender");
             textureResProp = serializedObject.FindProperty("textureResolutionScale");
+            useObliqueClipProp = serializedObject.FindProperty("useObliqueClip");
             ignoreWhenRenderProp = serializedObject.FindProperty("ignoreWhenRender");
             isMirrorProp = serializedObject.FindProperty("isMirror");
         }
@@ -80,7 +82,11 @@ namespace HTC.UnityPlugin.StereoRendering
             // get "shouldRender" flag value
             EditorGUILayout.PropertyField(shouldRenderProp);
 
+            // set texture resolution factor
             EditorGUILayout.PropertyField(textureResProp);
+
+            // set "useOblique" flag
+            EditorGUILayout.PropertyField(useObliqueClipProp);
 
             // get a list of gameObjects that should be ignored during rendering
             EditorGUILayout.PropertyField(ignoreWhenRenderProp, true);
