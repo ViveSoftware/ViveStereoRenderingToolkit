@@ -177,9 +177,11 @@ namespace HTC.UnityPlugin.StereoRendering
 
         // optimization flags
         public bool useObliqueClip = true;
+        public bool useScissor = true;
 
         // other params
         public float reflectionOffset = 0.05f;
+        private Rect fullViewport = new Rect(0, 0, 1, 1);
 
         // for mirror rendering
         public bool isMirror = false;
@@ -526,6 +528,18 @@ namespace HTC.UnityPlugin.StereoRendering
             // set projection matrix
             stereoCameraEye.projectionMatrix = projMat;
 
+            // simulate scissor test if flag is set
+            if (useScissor)
+            {
+                var r = GetScissorRect(projMat * worldToCameraMat);
+                stereoCameraEye.rect = r;
+                stereoCameraEye.projectionMatrix = GetScissorMatrix(r) * stereoCameraEye.projectionMatrix;
+            }
+            else
+            {
+                stereoCameraEye.rect = fullViewport;
+            }
+
             // set oblique near clip plane if flag is set
             if (useObliqueClip)
             {
@@ -591,6 +605,86 @@ namespace HTC.UnityPlugin.StereoRendering
             }
 
             return clipPlaneCameraSpace;
+        }
+
+        private Rect GetScissorRect(Matrix4x4 mat)
+        {
+            var renderer = GetComponent<Renderer>();
+            Vector3 cen = renderer.bounds.center;
+            Vector3 ext = renderer.bounds.extents;
+            Vector3[] extentPoints = new Vector3[8]
+            {
+                 WorldPointToViewport(mat, new Vector3(cen.x-ext.x, cen.y-ext.y, cen.z-ext.z)),
+                 WorldPointToViewport(mat, new Vector3(cen.x+ext.x, cen.y-ext.y, cen.z-ext.z)),
+                 WorldPointToViewport(mat, new Vector3(cen.x-ext.x, cen.y-ext.y, cen.z+ext.z)),
+                 WorldPointToViewport(mat, new Vector3(cen.x+ext.x, cen.y-ext.y, cen.z+ext.z)),
+                 WorldPointToViewport(mat, new Vector3(cen.x-ext.x, cen.y+ext.y, cen.z-ext.z)),
+                 WorldPointToViewport(mat, new Vector3(cen.x+ext.x, cen.y+ext.y, cen.z-ext.z)),
+                 WorldPointToViewport(mat, new Vector3(cen.x-ext.x, cen.y+ext.y, cen.z+ext.z)),
+                 WorldPointToViewport(mat, new Vector3(cen.x+ext.x, cen.y+ext.y, cen.z+ext.z))
+            };
+
+            bool invalidFlag = false;
+            Vector2 min = extentPoints[0];
+            Vector2 max = extentPoints[0];
+            foreach (Vector3 v in extentPoints)
+            {
+                // if v.z < 0 means this projection is unreliable
+                if (v.z < 0)
+                {
+                    invalidFlag = true;
+                    break;
+                }
+
+                min = Vector2.Min(min, v);
+                max = Vector2.Max(max, v);
+            }
+
+            if (invalidFlag)
+            {
+                return fullViewport;
+            }
+            else
+            {
+                min = Vector2.Max(min, Vector2.zero);
+                max = Vector2.Min(max, Vector2.one);
+                return new Rect(min.x, min.y, max.x - min.x, max.y - min.y);
+            }
+        }
+
+        private Matrix4x4 GetScissorMatrix(Rect rect)
+        {
+            Matrix4x4 m2 = Matrix4x4.TRS(
+                new Vector3((1 / rect.width - 1), (1 / rect.height - 1), 0),
+                Quaternion.identity,
+                new Vector3(1 / rect.width, 1 / rect.height, 1));
+
+            Matrix4x4 m3 = Matrix4x4.TRS(
+                new Vector3(-rect.x * 2 / rect.width, -rect.y * 2 / rect.height, 0),
+                Quaternion.identity,
+                Vector3.one);
+
+            return m3 * m2;
+        }
+
+        private Vector3 WorldPointToViewport(Matrix4x4 mat, Vector3 point)
+        {
+            Vector3 result;
+            result.x = mat.m00 * point.x + mat.m01 * point.y + mat.m02 * point.z + mat.m03;
+            result.y = mat.m10 * point.x + mat.m11 * point.y + mat.m12 * point.z + mat.m13;
+            result.z = mat.m20 * point.x + mat.m21 * point.y + mat.m22 * point.z + mat.m23;
+
+            float a = mat.m30 * point.x + mat.m31 * point.y + mat.m32 * point.z + mat.m33;
+            a = 1.0f / a;
+            result.x *= a;
+            result.y *= a;
+            result.z = a;
+
+            point = result;
+            point.x = (point.x * 0.5f + 0.5f);
+            point.y = (point.y * 0.5f + 0.5f);
+
+            return point;
         }
 
         /////////////////////////////////////////////////////////////////////////////////
