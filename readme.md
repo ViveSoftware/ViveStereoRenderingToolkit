@@ -13,7 +13,7 @@ Copyright 2016-2017, HTC Corporation. All rights reserved.
 2. Appropriate SDK for target VR devices
  - Vive or other SteamVR-compatible HMDs: SteamVR Unity plugin, version 1.2.0 or higher
  - Vive Focus: WaveVR plugin, version 2.0.13 or higher
- - Oculus Rift: OVR plugin, version 1.20.0 or higher
+ - Oculus Rift: OVR plugin, version 1.20.0 or higher (**only supported for Unity 2017.2 or higher**)
 
 3. **To run the examples, add camera rig prefabs from respective platform SDKs**
  - Vive or other SteamVR-compatible HMDs: no need to modify.
@@ -23,6 +23,11 @@ Copyright 2016-2017, HTC Corporation. All rights reserved.
 For tutorial and API reference, please see the attached Developer's Guide.
 
 ## Change log
+
+v1.1.1
+ - Add option to enable oblique near plane clipping for better performance (default on)
+ - Add option to enable scissor test for better performance (default on)
+ - Fix: "IsMirror" option in Unity editor would fail to set anchor position under certain conditions
 
 v1.1.0
  - [Backward Compatibility Break Change] drop support for Unity 5.3/5.4
