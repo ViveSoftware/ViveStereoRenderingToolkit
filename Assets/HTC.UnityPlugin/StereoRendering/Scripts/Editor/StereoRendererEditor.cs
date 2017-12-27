@@ -85,11 +85,6 @@ namespace HTC.UnityPlugin.StereoRendering
             // get a list of gameObjects that should be ignored during rendering
             EditorGUILayout.PropertyField(ignoreWhenRenderProp, true);
 
-            if (EditorGUI.EndChangeCheck())
-            {
-                EditorUtility.SetDirty(target);
-            }
-
             // create a horizontal line to seperate things
             EditorGUILayout.TextArea("", GUI.skin.horizontalSlider);
 
@@ -99,6 +94,11 @@ namespace HTC.UnityPlugin.StereoRendering
             {
                 script.anchorPos = script.canvasOriginPos;
                 script.anchorRot = script.canvasOriginRot;
+            }
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorUtility.SetDirty(target);
             }
 
             serializedObject.ApplyModifiedProperties();
