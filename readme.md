@@ -1,5 +1,5 @@
 # Vive Stereo Rendering Toolkit
-Copyright 2016-2017, HTC Corporation. All rights reserved.
+Copyright 2016-2018, HTC Corporation. All rights reserved.
 
 ## Introduction
 
@@ -23,6 +23,9 @@ Copyright 2016-2017, HTC Corporation. All rights reserved.
 For tutorial and API reference, please see the attached Developer's Guide.
 
 ## Change log
+
+v1.1.2
+ - Add option to make StereoRenderers unlit by scene lights (default off)
 
 v1.1.1
  - Add option to enable oblique near plane clipping for better performance (default on)
