@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.17178349, g: 0.21486938, b: 0.2871872, a: 1}
+  m_IndirectSpecularColor: {r: 0.1836845, g: 0.22913201, b: 0.30498505, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -1187,12 +1187,14 @@ MonoBehaviour:
   m_anchorWorldPosition: {x: 0, y: 0, z: 0}
   m_anchorWorldRotation: {x: 0, y: 0, z: 0}
   shouldRender: 1
+  isUnlit: 1
+  useObliqueClip: 1
+  useScissor: 1
   stereoCameraHead: {fileID: 2072167626}
   stereoCameraEye: {fileID: 1582587256}
   textureResolutionScale: 1
   ignoreWhenRender: []
   ignoreLayerName: StereoRender_Ignore
-  useObliqueClip: 1
   reflectionOffset: 0.05
   isMirror: 0
 --- !u!23 &1781779469
@@ -1426,13 +1428,13 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1997020094}
-  m_LocalRotation: {x: 0.9330127, y: -0.066987306, z: 0.24999997, w: 0.25000006}
+  m_LocalRotation: {x: 0.27444702, y: -0.24815215, z: 0.07353784, w: 0.9261164}
   m_LocalPosition: {x: -2.83, y: 7.98, z: 0.36}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 801502139}
   m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: 150, y: -30, z: 0}
+  m_LocalEulerAnglesHint: {x: 33.014, y: -30.000002, z: 0}
 --- !u!108 &1997020096
 Light:
   m_ObjectHideFlags: 0

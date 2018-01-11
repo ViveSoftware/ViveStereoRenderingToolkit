@@ -1,4 +1,4 @@
-﻿//========= Copyright 2016-2017, HTC Corporation. All rights reserved. ===========
+﻿//========= Copyright 2016-2018, HTC Corporation. All rights reserved. ===========
 
 using UnityEngine;
 using HTC.UnityPlugin.StereoRendering;
@@ -14,6 +14,7 @@ public class CreateStereoRenderer : MonoBehaviour
         if (r == null && Input.GetKeyDown(KeyCode.Space))
         {
             StereoRenderer stereoRenderer = target.AddComponent<StereoRenderer>();
+            stereoRenderer.SetUnlit(true);
 
             stereoRenderer.anchorPos = new Vector3(-0.22f, 0.0f, -2.39f);
             stereoRenderer.anchorEuler = new Vector3(0, 180.0f, 0);

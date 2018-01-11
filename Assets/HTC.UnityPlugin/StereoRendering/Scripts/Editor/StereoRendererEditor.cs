@@ -12,6 +12,7 @@ namespace HTC.UnityPlugin.StereoRendering
         private SerializedProperty stereoCameraEyeProp;
         private SerializedProperty anchorTransformProp;
         private SerializedProperty canvasOriginProp;
+        private SerializedProperty isUnlitProp;
         private SerializedProperty shouldRenderProp;
         private SerializedProperty textureResProp;
         private SerializedProperty useScissorProp;
@@ -33,6 +34,7 @@ namespace HTC.UnityPlugin.StereoRendering
             stereoCameraEyeProp = serializedObject.FindProperty("stereoCameraEye");
             anchorTransformProp = serializedObject.FindProperty("anchorTransform");
             canvasOriginProp = serializedObject.FindProperty("canvasOrigin");
+            isUnlitProp = serializedObject.FindProperty("isUnlit");
             shouldRenderProp = serializedObject.FindProperty("shouldRender");
             textureResProp = serializedObject.FindProperty("textureResolutionScale");
             useScissorProp = serializedObject.FindProperty("useScissor");
@@ -80,6 +82,9 @@ namespace HTC.UnityPlugin.StereoRendering
 
             // create a horizontal line to seperate things
             EditorGUILayout.TextArea("", GUI.skin.horizontalSlider);
+
+            // get "isUnlit" flag value
+            EditorGUILayout.PropertyField(isUnlitProp);
 
             // get "shouldRender" flag value
             EditorGUILayout.PropertyField(shouldRenderProp);

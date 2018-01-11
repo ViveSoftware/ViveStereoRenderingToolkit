@@ -153,6 +153,11 @@ namespace HTC.UnityPlugin.StereoRendering
         // flags
         private bool canvasVisible = false;
         public bool shouldRender = true;
+        public bool useObliqueClip = true;
+        public bool useScissor = true;
+
+        [SerializeField]
+        private bool isUnlit = false;
 
         // camera rig for stereo rendering, which is on the object this component attached to
         public GameObject stereoCameraHead = null;
@@ -174,10 +179,6 @@ namespace HTC.UnityPlugin.StereoRendering
 
         public string ignoreLayerName = "StereoRender_Ignore";
         private int ignoreLayerNumber = -1;
-
-        // optimization flags
-        public bool useObliqueClip = true;
-        public bool useScissor = true;
 
         // other params
         public float reflectionOffset = 0.05f;
@@ -302,7 +303,15 @@ namespace HTC.UnityPlugin.StereoRendering
 
                     if (StereoRenderDevice.IsNotUnityNativeSupport(StereoRenderManager.Instance.hmdType))
                     {
-                        renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture");
+                        if (isUnlit)
+                            renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture-Unlit");
+                        else
+                            renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture");
+                    }
+                    else
+                    {
+                        if (isUnlit)
+                            renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader-Unlit");
                     }
 
                     break;
@@ -313,14 +322,12 @@ namespace HTC.UnityPlugin.StereoRendering
             if (i == materialList.Length)
             {
                 renderer.sharedMaterial = (Material)Resources.Load("StereoRenderMaterial", typeof(Material));
-
                 if (StereoRenderDevice.IsNotUnityNativeSupport(StereoRenderManager.Instance.hmdType))
                 {
-                    renderer.materials[0].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture");
-                }
-                else
-                {
-                    renderer.materials[0].shader = Shader.Find("Custom/StereoRenderShader");
+                    if (isUnlit)
+                        renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture-Unlit");
+                    else
+                        renderer.materials[i].shader = Shader.Find("Custom/StereoRenderShader-SingleTexture");
                 }
 
                 stereoMaterial = renderer.materials[0];
@@ -723,6 +730,12 @@ namespace HTC.UnityPlugin.StereoRendering
         public bool IsEditing()
         {
             return Application.isEditor && !Application.isPlaying;
+        }
+
+        public void SetUnlit(bool value)
+        {
+            isUnlit = value;
+            SwapStereoShader();
         }
 
 #if UNITY_EDITOR
